@@ -100,24 +100,24 @@ write_files:
       <IfModule mod_dir.c>
           DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
       </IfModule>
-  - path: /etc/apache2/sites-available/$domain.conf
+  - path: /etc/apache2/sites-available/{{domain_name}}.conf
     content: |
       <VirtualHost *:80>
-        <Directory /var/www/$domain/htdocs>
+        <Directory /var/www/{{domain_name}}/htdocs>
           allow from all
           Options -Indexes
         </Directory>
-        ServerAdmin admin@$domain
-        ServerName $domain
-        ServerAlias www.$domain
-        DocumentRoot /var/www/$domain/htdocs
+        ServerAdmin admin@{{domain_name}}
+        ServerName {{domain_name}}
+        ServerAlias www.{{domain_name}}
+        DocumentRoot /var/www/{{domain_name}}/htdocs
         ErrorLog \${APACHE_LOG_DIR}/error.log
         CustomLog \${APACHE_LOG_DIR}/access.log combined
       </VirtualHost>
   - path: /tmp/composer.json
     content: |
       {
-        "name"        : "$domain",
+        "name"        : "{{domain_name}}",
         "description" : "DigitalOcean WordPress VPS Setup via Composer",
         "authors"     : [
             {
@@ -148,10 +148,10 @@ write_files:
             "wpackagist-plugin/log-deprecated-notices"    : "*"
         },
         "extra"       : {
-            "wordpress-install-dir": "/var/www/$domain/htdocs/",
+            "wordpress-install-dir": "/var/www/{{domain_name}}/htdocs/",
             "installer-paths": {
-                "/var/www/$domain/htdocs/wp-content/plugins/{\$name}" : ["type:wordpress-plugin"],
-                "/var/www/$domain/htdocs/wp-content/themes/{\$name}"  : ["type:wordpress-theme"]
+                "/var/www/{{domain_name}}/htdocs/wp-content/plugins/{\$name}" : ["type:wordpress-plugin"],
+                "/var/www/{{domain_name}}/htdocs/wp-content/themes/{\$name}"  : ["type:wordpress-theme"]
             }
         }
       }
@@ -159,8 +159,8 @@ write_files:
     content: |
       # Global parameter defaults
       path: wp-core
-      url: https://$domain
-      user: $admin_user
+      url: https://{{domain_name}}
+      user: {{admin_user}}
       color: false
       disabled_commands:
         - db drop
@@ -171,9 +171,9 @@ write_files:
       config create:
         extra-php: |
           define( 'WP_CONTENT_DIR', dirname(__FILE__) . '/' );
-          define( 'WP_SITEURL',     'https://$domain');
-          define( 'WP_HOME',    'https://$domain');
-          define( 'WP_CONTENT_URL', 'https://$domain');	
+          define( 'WP_SITEURL',     'https://{{domain_name}}');
+          define( 'WP_HOME',    'https://{{domain_name}}');
+          define( 'WP_CONTENT_URL', 'https://{{domain_name}}');	
 runcmd:
   - mkdir -p -m770 /setup/scripts
   - cp /etc/shadow /etc/shadow.orig
@@ -197,7 +197,7 @@ runcmd:
   - apt-get -y install composer --allow-unauthenticated
   - echo "*** Install apache2 ***"
   - apt-get -y install apache2
-  - mkdir -p /var/www/$domain/htdocs
+  - mkdir -p /var/www/{{domain_name}}/htdocs
   - mv /etc/apache2/mods-enabled/dir.conf.new /etc/apache2/mods-enabled/dir.conf
   - cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf.orig
   - mv /etc/apache2/apache2.conf.new /etc/apache2/apache2.conf
@@ -225,12 +225,12 @@ runcmd:
   - expect /tmp/secure_our_mysql.sh \$rootmysqlpass
   - wait $!
   - echo "*** Create WordPress Database ***"
-  - /usr/bin/mysqladmin -u \$rootmysqluser -p\$rootmysqlpass create $wp_database
+  - /usr/bin/mysqladmin -u \$rootmysqluser -p\$rootmysqlpass create {{wp_database}}
   - >
-    /usr/bin/mysql -u \$rootmysqluser -p\$rootmysqlpass -e "CREATE USER '$wp_db_user'@'localhost' IDENTIFIED BY '"\$wp_sqlpass"';
-    GRANT ALL PRIVILEGES ON *.* TO '$wp_db_user'@'localhost';
-    CREATE USER '$wp_db_user'@'%' IDENTIFIED BY '"\$wp_sqlpass"';
-    GRANT ALL PRIVILEGES ON *.* TO '$wp_db_user'@'%';
+    /usr/bin/mysql -u \$rootmysqluser -p\$rootmysqlpass -e "CREATE USER '{{wp_db_user}}'@'localhost' IDENTIFIED BY '"\$wp_sqlpass"';
+    GRANT ALL PRIVILEGES ON *.* TO '{{wp_db_user}}'@'localhost';
+    CREATE USER '{{wp_db_user}}'@'%' IDENTIFIED BY '"\$wp_sqlpass"';
+    GRANT ALL PRIVILEGES ON *.* TO '{{wp_db_user}}'@'%';
     FLUSH PRIVILEGES;"   
   - systemctl restart apache2
   - echo "*** Set-up Default MySQL User ***"
@@ -241,22 +241,22 @@ runcmd:
   - echo "*** Install & Configure Sendmail (for PHP Mail) ***"
   - apt-get -y install sendmail
   - echo "*** Download & Install WordPress ***"
-  - cd /var/www/$domain/htdocs
-  - mv /tmp/composer.json /var/www/$domain/htdocs
-  - mv /tmp/wp-cli.yml  /var/www/$domain/htdocs
+  - cd /var/www/{{domain_name}}/htdocs
+  - mv /tmp/composer.json /var/www/{{domain_name}}/htdocs
+  - mv /tmp/wp-cli.yml  /var/www/{{domain_name}}/htdocs
   - composer install --prefer-dist
   - echo "*** Download & Install WP-CLI ***"
   - wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
   - chmod +x wp-cli.phar
   - mv wp-cli.phar /usr/local/bin/wp
-  - wp core config --dbname=$wp_database --dbuser=$wp_db_user --dbpass=\$wp_sqlpass --dbhost='Localhost' --dbprefix='wp_' --allow-root
-  - wp core install --url=$domain --title="New WordPress Site" --admin_user=$admin_user --admin_password=$admin_password --admin_email=$admin_email --allow-root
+  - wp core config --dbname={{wp_database}} --dbuser={{wp_db_user}} --dbpass=\$wp_sqlpass --dbhost='Localhost' --dbprefix='wp_' --allow-root
+  - wp core install --url={{domain_name}} --title="{{wp_site_title}}" --admin_user={{admin_user}} --admin_password={{admin_passwd}} --admin_email={{admin_email}} --allow-root
   - cd /setup/scripts
   - chmod +x wordpress_plugins.sh
   - bash wordpress_plugins.sh 
   - wait $!
   - echo "*** Configure Websites ***"
-  - a2ensite $domain.conf
+  - a2ensite {{domain_name}}.conf
   - a2dissite 000-default.conf
   - echo "*** Final Apache Restart ***"
   - systemctl reload apache2
